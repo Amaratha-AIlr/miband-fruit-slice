@@ -1,0 +1,920 @@
+<template>
+  <div class="page" ontouchstart="onTouchStart" ontouchmove="onTouchMove" ontouchend="onTouchEnd" onclick="onPageClick">
+
+    <!-- 顶部计分 -->
+    <div class="hud">
+      <text class="score">{{score}}</text>
+      <text class="best">最高 {{best}}</text>
+      <text class="lives">{{livesText}}</text>
+    </div>
+
+    <!-- 水果：位置用 left/top（transform 内联会黑屏），图片用 image -->
+    <div class="fruit" for="{{fruits}}" tid="id"
+         style="left: {{$item.x}}px; top: {{$item.y}}px;">
+      <image class="fimg" src="{{$item.img}}"></image>
+    </div>
+
+    <!-- 果汁飞溅：一次切只加 1 个元素（图里已经画好几十滴）
+         结构和水果保持一致：外层 div 定位，内层 image 显示 -->
+    <div class="splash" for="{{splashes}}" tid="id"
+         style="left: {{$item.x}}px; top: {{$item.y}}px; opacity: {{$item.opacity}}">
+      <image class="simg" src="{{$item.img}}"></image>
+    </div>
+
+    <!-- 得分飘字 -->
+    <text class="pop" style="left: {{popX}}px; top: {{popY}}px; opacity: {{popOpacity}}">{{popText}}</text>
+
+    <!-- 连击提示 -->
+    <text class="combo" if="{{comboText !== ''}}">{{comboText}}</text>
+
+    <!-- 触摸调试（确认触摸生效后可删） -->
+    <text class="dbg" if="{{dbg !== ''}}">{{dbg}}</text>
+
+    <!-- 错误兜底 -->
+    <text class="err" if="{{errText !== ''}}">{{errText}}</text>
+
+    <!-- 炸弹命中的红闪 -->
+    <div class="flash" if="{{flashOn}}"></div>
+
+    <!-- 开始界面 -->
+    <div class="overlay" if="{{state === 'ready'}}">
+      <text class="otitle">水果切乐</text>
+      <text class="ohint">手指划过水果切开</text>
+      <text class="ohint2">漏掉 3 个就结束</text>
+      <div class="obtn" onclick="startGame">
+        <text class="obt">开始</text>
+      </div>
+      <text class="aboutlink" onclick="goAbout">关于</text>
+    </div>
+
+    <!-- 关于界面 -->
+    <div class="aboutpage" if="{{state === 'about'}}">
+      <div class="abouthead">
+        <div class="nbtn" onclick="backToReady">
+          <text class="nbtn-t">返回</text>
+        </div>
+        <text class="atitle2">关于</text>
+      </div>
+
+      <div class="aboutbody">
+        <image class="authors" src="/common/images/authors.png"></image>
+
+        <text class="motto">切一刀就够爽了，别想太多。</text>
+
+        <text class="sign">Amarantha</text>
+        <text class="sign2">搭载 DSH 的 DeepSeek-V4.1-Flash</text>
+
+        <text class="ver">v{{version}}</text>
+      </div>
+    </div>
+
+    <!-- 结束界面 -->
+    <div class="overlay" if="{{state === 'over'}}">
+      <text class="otitle">结束</text>
+      <text class="oscore">{{score}}</text>
+      <text class="newrec" if="{{isNewRecord}}">新纪录！</text>
+      <text class="ohint">{{overHint}}</text>
+      <div class="obtn" onclick="startGame">
+        <text class="obt">再来</text>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<style>
+  .page {
+    width: 100%;
+    height: 520px;
+    flex-direction: column;
+    background-color: #101c14;
+  }
+
+  /* ---------- 顶部 HUD ---------- */
+  .hud {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 42px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #15251b;
+  }
+
+  .score {
+    font-size: 22px;
+    color: #ffffff;
+    margin-left: 10px;
+  }
+
+  .best {
+    font-size: 9px;
+    color: #6b8a75;
+  }
+
+  .lives {
+    font-size: 13px;
+    color: #ff5252;
+    margin-right: 10px;
+  }
+
+  /* ---------- 水果 ---------- */
+  /* ⚠️ 这里的尺寸必须和 JS 里的 FRUIT_SIZE 保持一致，否则图像和判定会错位 */
+  .fruit {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+  }
+
+  .fimg {
+    width: 80px;
+    height: 80px;
+  }
+
+  /* ---------- 果汁飞溅 ---------- */
+  /* ⚠️ 必须和 JS 里的 SPLASH_SIZE 一致 */
+  .splash {
+    position: absolute;
+    width: 132px;
+    height: 132px;
+    flex-shrink: 0;
+  }
+
+  .simg {
+    width: 132px;
+    height: 132px;
+  }
+
+  /* ---------- 飘字 ---------- */
+  .pop {
+    position: absolute;
+    font-size: 16px;
+    color: #7ee787;
+  }
+
+  /* 炸弹红闪 */
+  .flash {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 520px;
+    background-color: #ff2d2d;
+    opacity: 0.32;
+  }
+
+  .newrec {
+    font-size: 14px;
+    color: #ffd54f;
+    margin-top: 2px;
+  }
+
+  .combo {
+    position: absolute;
+    left: 56px;
+    top: 56px;
+    font-size: 15px;
+    color: #ffb300;
+  }
+
+  .dbg {
+    position: absolute;
+    left: 4px;
+    top: 496px;
+    font-size: 8px;
+    color: #4a6b57;
+  }
+
+  .err {
+    position: absolute;
+    left: 4px;
+    top: 484px;
+    font-size: 8px;
+    color: #ff5252;
+  }
+
+  /* ---------- 遮罩层 ---------- */
+  .overlay {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 520px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #101c14;
+  }
+
+  .otitle {
+    font-size: 24px;
+    color: #7ee787;
+  }
+
+  .oscore {
+    font-size: 34px;
+    color: #ffffff;
+    margin-top: 4px;
+  }
+
+  .ohint {
+    font-size: 11px;
+    color: #8fa89a;
+    margin-top: 8px;
+  }
+
+  .ohint2 {
+    font-size: 10px;
+    color: #5a7268;
+    margin-top: 4px;
+  }
+
+  .obtn {
+    width: 110px;
+    height: 38px;
+    margin-top: 18px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 19px;
+    background-color: #2e9e4f;
+    flex-shrink: 0;
+  }
+
+  .obt {
+    font-size: 15px;
+    color: #ffffff;
+  }
+
+  /* 开始界面底部的「关于」文字链接 */
+  .aboutlink {
+    font-size: 12px;
+    color: #6f9a82;
+    margin-top: 16px;
+  }
+
+  /* ---------- 关于页 ----------
+     ⚠️ 坑：Vela 不支持复合类选择器（.overlay.about）。
+     写复合选择器会把属性套到 .overlay 全部元素上，导致开始界面也被拽到左上角。
+     所以关于页必须用自己的单一类名。 */
+  .aboutpage {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 520px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 6px 8px;
+    background-color: #101c14;
+  }
+
+  .abouthead {
+    flex-direction: row;
+    align-items: center;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .nbtn {
+    width: 56px;
+    height: 28px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 14px;
+    background-color: #1d3a2a;
+    flex-shrink: 0;
+  }
+
+  .nbtn-t {
+    font-size: 12px;
+    color: #9fd6b4;
+  }
+
+  .atitle2 {
+    font-size: 16px;
+    color: #ff8a00;
+    margin-left: 12px;
+  }
+
+  .aboutbody {
+    width: 100%;
+    height: 460px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .authors {
+    width: 178px;
+    height: 92px;
+  }
+
+  .motto {
+    font-size: 13px;
+    color: #ffffff;
+    margin-top: 14px;
+    text-align: center;
+    width: 190px;
+  }
+
+  .sign {
+    font-size: 13px;
+    color: #7ee787;
+    margin-top: 16px;
+  }
+
+  .sign2 {
+    font-size: 10px;
+    color: #888888;
+    margin-top: 3px;
+  }
+
+  .ver {
+    font-size: 9px;
+    color: #6b8a75;
+    margin-top: 14px;
+  }
+</style>
+
+<script>
+import vibrator from '@system.vibrator'
+import storage from '@system.storage'
+
+/* ---------- 常量 ---------- */
+
+/* 震动开关：2026-10-18 真机探测确认 vibrator = OK，已开启
+   （注意：模拟器上调 vibrator 会崩进程，验证请上真机） */
+const ENABLE_VIBRATE = true
+
+/* 触摸调试：底部显示最后触摸坐标，确认触摸生效后可关 */
+const DEBUG_TOUCH = false
+
+/* 自动开局：仅用于我在模拟器里自测（没法注入触摸）。发布版必须是 false */
+const AUTO_START_TEST = false
+
+const SCREEN_W = 212
+const SCREEN_H = 520
+const FRUIT_SIZE = 80         /* v1.8 放大：64 → 80（素材 64px，轻微放大换取更大更好切） */
+const FRUIT_R = 40
+const HIT_R = 60              /* 判定半径，比视觉大一圈，好切 */
+const GRAVITY = 520
+const MAX_FRUIT = 3           /* 从 4 降到 3：元素更少，掉帧更少，触摸更跟手 */
+const TICK_MS = 33
+const LIVES = 3
+const SPAWN_MIN = 1100
+const SPAWN_MAX = 1700
+
+/* 水果表：不同水果不同分（大水果更值钱）
+   score 就是切开加多少分 */
+const FRUITS = [
+  { key: 'melon',  img: '/common/images/fruits/melon.png',  score: 3 },
+  { key: 'pine',   img: '/common/images/fruits/pine.png',   score: 3 },
+  { key: 'apple',  img: '/common/images/fruits/apple.png',  score: 2 },
+  { key: 'orange', img: '/common/images/fruits/orange.png', score: 2 },
+  { key: 'peach',  img: '/common/images/fruits/peach.png',  score: 2 },
+  { key: 'grape',  img: '/common/images/fruits/grape.png',  score: 1 },
+  { key: 'lemon',  img: '/common/images/fruits/lemon.png',  score: 1 },
+  { key: 'banana', img: '/common/images/fruits/banana.png', score: 1 },
+  { key: 'straw',  img: '/common/images/fruits/straw.png',  score: 1 },
+  { key: 'kiwi',   img: '/common/images/fruits/kiwi.png',   score: 1 }
+]
+
+/* 炸弹：切到掉一条命 */
+const BOMB = {
+  key: 'bomb',
+  img: '/common/images/fruits/bomb.png',
+  score: 0
+}
+
+const BOMB_START_SCORE = 0     /* 得分超过这个才开始出现炸弹（新手友好） */
+/* ⚠️ 炸弹暂时关闭（0 = 不出现）
+   实测：切到炸弹时会让 Vela 运行时原生崩溃（连模拟器 adb 都会卡死），
+   和 vibrator 那类问题一样是原生层崩，try/catch 拦不住。
+   代码保留，等有空单独排查（怀疑和全屏红闪 div、或运行时改 lives 有关）。 */
+const BOMB_RATE = 0         /* 炸弹出现概率 */
+
+/* 飞溅图尺寸 */
+const SPLASH_SIZE = 132       /* v1.8 放大：96 → 132 */
+const MAX_SPLASH = 3        /* 从 6 降到 3：飞溅是最占性能的元素（96×96 图片） */
+
+/* ---------- 小工具 ---------- */
+
+function isNum(v) {
+  return typeof v === 'number' && isFinite(v)
+}
+
+function fmtNum(v) {
+  if (v === null || v === undefined || !isFinite(v)) return '-'
+  return String(Math.round(v))
+}
+
+export default {
+  data: {
+    state: 'ready',
+    version: '1.8.0',
+    score: 0,
+    best: 0,
+    lives: LIVES,
+    livesText: '',
+    overHint: '',
+    isNewRecord: false,
+    flashOn: false,
+    fruits: [],      /* ★ 只给渲染用，字段：id/x/y/img */
+    splashes: [],    /* 果汁飞溅 */
+    popX: 0,
+    popY: 0,
+    popText: '+1',
+    popOpacity: 0,
+    comboText: '',
+    dbg: '',
+    errText: ''
+  },
+
+  /*
+     ★★ 关键设计：内部物理数据和渲染数据必须分开 ★★
+     this.items  = 真正的物理对象，带 vx/vy
+     this.fruits = 给模板渲染的纯数据，只有 id/x/y/img
+     以前两者共用一个数组，pushFruits 把 vx/vy 洗掉了，
+     下一帧 f.vy 变成 undefined → NaN → 水果卡在 (0,0)。
+  */
+
+  onInit() {
+    console.log('[FRUIT] onInit v1.2')
+    this.items = []
+    this.fruits = []
+    this.splashes = []
+    this.nextId = 1
+    this.splashId = 1
+    this.timer = null
+    this.spawnTimer = null
+    this.popTimer = null
+    this.comboTimer = null
+    this.comboCount = 0
+    this.lastTouch = null
+    this.loadBest()
+    this.refreshLives()
+
+    if (AUTO_START_TEST) {
+      const that = this
+      setTimeout(function () {
+        try { that.startGame() } catch (e) {}
+        /* 自测：每 700ms 自动切一个当前屏幕上的东西（水果或炸弹），
+           用来验证计分 / 连击 / 炸弹 / 飞溅 / 结束整条链路 */
+        setInterval(function () {
+          try {
+            if (that.state !== 'playing' || that.items.length === 0) return
+            const it = that.items[Math.floor(Math.random() * that.items.length)]
+            that.trySlice(it.x + FRUIT_R, it.y + FRUIT_R)
+            that.syncView()
+          } catch (e) {}
+        }, 700)
+      }, 900)
+    }
+  },
+
+  onDestroy() {
+    this.stopAll()
+  },
+
+  onHide() {
+    if (this.state === 'playing') this.stopAll()
+  },
+
+  /* ---------- 震动 ---------- */
+
+  buzz(mode) {
+    if (!ENABLE_VIBRATE) return
+    try {
+      vibrator.vibrate({ mode: mode })
+    } catch (e) {}
+  },
+
+  /* ---------- 存档 ---------- */
+
+  loadBest() {
+    const that = this
+    try {
+      storage.get({
+        key: 'fruit_best',
+        default: '0',
+        success: function (v) {
+          that.best = parseInt(v, 10) || 0
+        },
+        fail: function () {}
+      })
+    } catch (e) {}
+  },
+
+  saveBest() {
+    if (this.score > this.best) {
+      this.best = this.score
+      try {
+        storage.set({
+          key: 'fruit_best',
+          value: String(this.score),
+          success: function () {},
+          fail: function () {}
+        })
+      } catch (e) {}
+    }
+  },
+
+  /* ---------- 游戏控制 ---------- */
+
+  startGame() {
+    console.log('[FRUIT] startGame')
+    this.stopAll()
+    this.items = []
+    this.fruits = []
+    this.splashes = []
+    this.score = 0
+    this.lives = LIVES
+    this.comboCount = 0
+    this.comboText = ''
+    this.overHint = ''
+    this.errText = ''
+    this.dbg = ''
+    this.state = 'playing'
+    this.refreshLives()
+    this.timer = setInterval(this.tick, TICK_MS)
+    this.scheduleSpawn()
+    this.buzz('short')
+  },
+
+  /* ---------- 关于页 ---------- */
+
+  goAbout() {
+    console.log('[FRUIT] goAbout')
+    this.stopAll()
+    this.state = 'about'
+  },
+
+  backToReady() {
+    console.log('[FRUIT] backToReady')
+    this.state = 'ready'
+  },
+
+  stopAll() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null }
+    if (this.spawnTimer) { clearTimeout(this.spawnTimer); this.spawnTimer = null }
+    if (this.popTimer) { clearTimeout(this.popTimer); this.popTimer = null }
+    if (this.comboTimer) { clearTimeout(this.comboTimer); this.comboTimer = null }
+  },
+
+  refreshLives() {
+    let s = ''
+    for (let i = 0; i < this.lives; i++) s += '♥'
+    if (s === '') s = '—'
+    this.livesText = s
+  },
+
+  /* 物理数组 -> 渲染数组（只挑渲染需要的字段） */
+  syncView() {
+    const out = []
+    for (let i = 0; i < this.items.length; i++) {
+      const f = this.items[i]
+      let x = f.x
+      let y = f.y
+      if (!isFinite(x)) x = 0
+      if (!isFinite(y)) y = 0
+      out.push({
+        id: f.id,
+        x: Math.round(x),
+        y: Math.round(y),
+        img: f.img
+      })
+    }
+    this.fruits = out
+  },
+
+  scheduleSpawn() {
+    if (this.state !== 'playing') return
+    const that = this
+    /* 难度递增：分数越高，水果出得越密（最多缩短 4 档） */
+    const lvl = Math.min(4, Math.floor(this.score / 8))
+    const minD = SPAWN_MIN - lvl * 110
+    const maxD = SPAWN_MAX - lvl * 180
+    const delay = minD + Math.random() * (maxD - minD)
+    this.spawnTimer = setTimeout(function () {
+      try {
+        that.spawn()
+      } catch (e) {
+        that.errText = 'spawn: ' + (e && e.message ? e.message : e)
+      }
+      that.scheduleSpawn()
+    }, delay)
+  },
+
+  spawn() {
+    if (this.state !== 'playing') return
+    if (this.items.length >= MAX_FRUIT) return
+
+    /* 得分够了才可能出炸弹 */
+    const useBomb = this.score >= BOMB_START_SCORE && Math.random() < BOMB_RATE
+    const pick = useBomb ? BOMB : FRUITS[Math.floor(Math.random() * FRUITS.length)]
+
+    const x = 6 + Math.random() * (SCREEN_W - 12 - FRUIT_SIZE)
+    const vy = -(600 + Math.random() * 70)
+    const vx = (Math.random() - 0.5) * 150
+    this.items.push({
+      id: this.nextId++,
+      x: x,
+      y: SCREEN_H + 10,
+      vx: vx,
+      vy: vy,
+      img: pick.img,
+      key: pick.key,
+      score: pick.score
+    })
+    this.syncView()
+  },
+
+  /* ---------- 每帧物理 ---------- */
+
+  tick() {
+    if (this.state !== 'playing') return
+    try {
+      this.step()
+    } catch (e) {
+      this.errText = 'tick: ' + (e && e.message ? e.message : e)
+    }
+  },
+
+  step() {
+    const dt = TICK_MS / 1000
+    const keep = []
+    let missed = 0
+
+    for (let i = 0; i < this.items.length; i++) {
+      const f = this.items[i]
+
+      /* 防御：万一速度坏了就重置，绝不让 NaN 传染 */
+      if (!isFinite(f.vx)) f.vx = 0
+      if (!isFinite(f.vy)) f.vy = -640
+      if (!isFinite(f.x)) f.x = SCREEN_W / 2
+      if (!isFinite(f.y)) f.y = SCREEN_H - 100
+
+      f.vy = f.vy + GRAVITY * dt
+      f.x = f.x + f.vx * dt
+      f.y = f.y + f.vy * dt
+
+      if (f.x < 0) { f.x = 0; f.vx = -f.vx }
+      if (f.x > SCREEN_W - FRUIT_SIZE) { f.x = SCREEN_W - FRUIT_SIZE; f.vx = -f.vx }
+
+      if (f.y > SCREEN_H + 60) {
+        /* 炸弹漏掉不扣命（漏掉炸弹是好事） */
+        if (f.key !== 'bomb') missed++
+      } else {
+        keep.push(f)
+      }
+    }
+
+    if (missed > 0) {
+      this.lives = this.lives - missed
+      if (this.lives < 0) this.lives = 0
+      this.refreshLives()
+      this.comboCount = 0
+      this.comboText = ''
+      if (this.lives <= 0) {
+        this.items = []
+        this.syncView()
+        this.gameOver()
+        return
+      }
+    }
+
+    this.items = keep
+    this.syncView()
+  },
+
+  gameOver() {
+    console.log('[FRUIT] gameOver score=' + this.score)
+    const oldBest = this.best
+    this.stopAll()
+    this.saveBest()
+    this.state = 'over'
+    this.isNewRecord = this.score > oldBest && this.score > 0
+    this.overHint = this.isNewRecord ? '刷新了个人纪录' : ('最高 ' + this.best)
+    this.buzz('long')
+  },
+
+  /* 炸弹命中的画面红闪 */
+  flash() {
+    const that = this
+    this.flashOn = true
+    if (this.flashTimer) clearTimeout(this.flashTimer)
+    this.flashTimer = setTimeout(function () {
+      that.flashOn = false
+    }, 170)
+  },
+
+  /* ---------- 触摸 ----------
+     ★ 关键：优先用 clientX/clientY。
+       offsetX/offsetY 是「相对事件触发对象」的坐标 —— 手指落在水果图片上时，
+       拿到的会是相对那张 64px 图片的坐标（0~64），完全错位。
+       clientX/clientY 是相对屏幕的，页面又是全屏，所以最稳。 */
+
+  pickPoint(e) {
+    if (!e) return null
+    let t = null
+    if (e.touches && e.touches.length > 0) t = e.touches[0]
+    else if (e.changedTouches && e.changedTouches.length > 0) t = e.changedTouches[0]
+    else t = e
+
+    if (!t) return null
+
+    const cx = isNum(t.clientX) ? t.clientX : null
+    const cy = isNum(t.clientY) ? t.clientY : null
+    const ox = isNum(t.offsetX) ? t.offsetX : null
+    const oy = isNum(t.offsetY) ? t.offsetY : null
+
+    if (cx === null && ox === null) return null
+    if (cy === null && oy === null) return null
+
+    const useX = cx !== null ? cx : ox
+    const useY = cy !== null ? cy : oy
+    return {
+      x: useX,
+      y: useY,
+      tag: 'c=' + fmtNum(cx) + ',' + fmtNum(cy) + ' o=' + fmtNum(ox) + ',' + fmtNum(oy)
+    }
+  },
+
+  onTouchStart(e) {
+    const p = this.pickPoint(e)
+    if (!p) return
+    this.lastTouch = p
+    if (DEBUG_TOUCH && this.state === 'playing') this.dbg = 'down ' + p.tag
+    /* ★ 关键修复：按下那一瞬间就尝试切！以前这里只记录坐标不判定，
+       导致"点一下"完全没反应（click 要抬起才触发，移动目标基本点不中）。 */
+    if (this.state === 'playing') {
+      if (this.trySlice(p.x, p.y)) this.syncView()
+    }
+  },
+
+  onTouchMove(e) {
+    const p = this.pickPoint(e)
+    if (!p) return
+    if (DEBUG_TOUCH && this.state === 'playing') this.dbg = 'move ' + p.tag
+    if (this.state !== 'playing') {
+      this.lastTouch = p
+      return
+    }
+    const last = this.lastTouch || p
+    this.lastTouch = p
+
+    let hitAny = false
+    const STEPS = 6
+    for (let s = 1; s <= STEPS; s++) {
+      const k = s / STEPS
+      const px = last.x + (p.x - last.x) * k
+      const py = last.y + (p.y - last.y) * k
+      if (this.trySlice(px, py)) hitAny = true
+    }
+    if (hitAny) this.syncView()
+  },
+
+  onTouchEnd(e) {
+    /* 抬手时再判一次：按下没切到、但手指停在水果上时也能切中 */
+    const p = this.pickPoint(e)
+    if (p && this.state === 'playing') {
+      if (this.trySlice(p.x, p.y)) this.syncView()
+    }
+    this.lastTouch = null
+  },
+
+  /* 点一下也能切开（兜底：万一滑动事件不灵） */
+  onPageClick(e) {
+    if (this.state !== 'playing') return
+    const p = this.pickPoint(e)
+    if (!p) return
+    if (DEBUG_TOUCH) this.dbg = 'tap ' + p.tag
+    if (this.trySlice(p.x, p.y)) this.syncView()
+  },
+
+  trySlice(px, py) {
+    const arr = this.items
+    const keep = []
+    let sliced = null
+    for (let i = 0; i < arr.length; i++) {
+      const f = arr[i]
+      if (sliced === null) {
+        const cx = f.x + FRUIT_R
+        const cy = f.y + FRUIT_R
+        const dx = px - cx
+        const dy = py - cy
+        if (dx * dx + dy * dy <= HIT_R * HIT_R) {
+          sliced = f
+          continue
+        }
+      }
+      keep.push(f)
+    }
+    if (sliced === null) return false
+
+    this.items = keep
+
+    /* ---- 炸弹：掉一条命 + 红闪 + 黑烟 ---- */
+    if (sliced.key === 'bomb') {
+      this.lives = this.lives - 1
+      if (this.lives < 0) this.lives = 0
+      this.refreshLives()
+      this.comboCount = 0
+      this.comboText = ''
+      this.addSplash(sliced.x + FRUIT_R, sliced.y + FRUIT_R, 'bomb')
+      this.flash()
+      this.buzz('long')
+      console.log('[FRUIT] 切到炸弹, 剩余命=' + this.lives)
+      if (this.lives <= 0) this.gameOver()
+      return true
+    }
+
+    /* ---- 正常水果：按水果种类给分，连击还有额外奖励 ---- */
+    this.comboCount = this.comboCount + 1
+    const comboBonus = (this.comboCount % 3 === 0) ? 2 : 0
+    const gain = (sliced.score || 1) + comboBonus
+    this.score = this.score + gain
+
+    this.addSplash(sliced.x + FRUIT_R, sliced.y + FRUIT_R, sliced.key)
+    this.showPop(sliced.x, sliced.y, gain)
+    this.showCombo()
+    this.buzz('short')
+    return true
+  },
+
+  /* ---------- 果汁飞溅 ----------
+     省性能的关键：不生成几十个小圆点，而是用一张预先画好的
+     "飞溅图"（里面已经有几十滴水珠），一次切开只加 1 个 image 元素。 */
+  addSplash(cx, cy, key) {
+    if (!key) return
+    const id = this.splashId++
+    const item = {
+      id: id,
+      x: Math.round(cx - SPLASH_SIZE / 2),
+      y: Math.round(cy - SPLASH_SIZE / 2),
+      img: '/common/images/splash/' + key + '.png',
+      opacity: 1
+    }
+
+    const arr = []
+    const cur = this.splashes
+    const start = cur.length >= MAX_SPLASH ? cur.length - MAX_SPLASH + 1 : 0
+    for (let i = start; i < cur.length; i++) arr.push(cur[i])
+    arr.push(item)
+    this.splashes = arr
+
+    const that = this
+
+    /* 第 130ms：淡一点 */
+    setTimeout(function () {
+      const out = []
+      for (let i = 0; i < that.splashes.length; i++) {
+        const s = that.splashes[i]
+        out.push({
+          id: s.id, x: s.x, y: s.y, img: s.img,
+          opacity: s.id === id ? 0.45 : s.opacity
+        })
+      }
+      that.splashes = out
+    }, 90)
+
+    /* 第 300ms：移除 */
+    setTimeout(function () {
+      const out = []
+      for (let i = 0; i < that.splashes.length; i++) {
+        if (that.splashes[i].id !== id) out.push(that.splashes[i])
+      }
+      that.splashes = out
+    }, 210)
+  },
+
+  showPop(x, y, gain) {
+    const that = this
+    this.popX = Math.round(x)
+    this.popY = Math.round(y)
+    this.popText = '+' + (gain || 1)
+    this.popOpacity = 1
+    if (this.popTimer) clearTimeout(this.popTimer)
+    this.popTimer = setTimeout(function () {
+      that.popOpacity = 0
+    }, 280)
+  },
+
+  showCombo() {
+    const that = this
+    if (this.comboCount >= 3) {
+      const bonus = (this.comboCount % 3 === 0) ? '  +2' : ''
+      this.comboText = '连击 x' + this.comboCount + bonus
+    }
+    if (this.comboTimer) clearTimeout(this.comboTimer)
+    this.comboTimer = setTimeout(function () {
+      that.comboText = ''
+      that.comboCount = 0
+    }, 900)
+  }
+}
+</script>

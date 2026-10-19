@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2026 Amarantha-AIlr
+
+8a7871b (水果切乐 v1.8.0：小米手环 11 快应用，切水果小游戏（果汁飞溅 / 震动 / 连击 / 难度递增）)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,20 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+<<<<<<< HEAD
+=======
+
+---
+
+第三方素材声明 / Third-party asset notice:
+
+1. 心情记录 使用的表情图片来自 Microsoft Fluent Emoji
+   https://github.com/microsoft/fluentui-emoji
+   MIT License, Copyright (c) Microsoft Corporation
+
+2. 水果切乐 使用的水果图片为 Apple Emoji，经 npm 包 emoji-datasource 获取，
+   仅用于个人非商业项目。Apple Emoji 的版权归 Apple Inc. 所有。
+   如需商用请自行替换为可商用素材（例如 Google Noto Emoji, Apache-2.0）。
+
+3. 开发工具：Xiaomi AIoT-IDE / aiot-toolkit
+>>>>>>> 8a7871b (水果切乐 v1.8.0：小米手环 11 快应用，切水果小游戏（果汁飞溅 / 震动 / 连击 / 难度递增）)

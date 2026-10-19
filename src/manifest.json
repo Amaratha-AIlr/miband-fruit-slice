@@ -1,0 +1,31 @@
+{
+  "package": "com.miband11exploration.fruitslice",
+  "name": "水果切乐",
+  "icon": "/common/images/logo.png",
+  "versionName": "1.8.0",
+  "versionCode": 2,
+  "minAPILevel": 1,
+  "features": [
+    { "name": "system.vibrator" },
+    { "name": "system.storage" }
+  ],
+  "deviceTypeList": [
+    "watch"
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": "device-width"
+  },
+  "display": {
+    "backgroundColor": "#101c14"
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index",
+        "path": "/"
+      }
+    }
+  }
+}

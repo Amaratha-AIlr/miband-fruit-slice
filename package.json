@@ -1,0 +1,22 @@
+{
+  "name": "miband11-fruitslice",
+  "version": "1.0.0",
+  "description": "水果切乐 —— 手环上的切水果小游戏（手指划过切开，震动反馈）",
+  "engines": {
+    "node": ">=8.10"
+  },
+  "scripts": {
+    "start": "aiot server --watch --open-nuttx",
+    "build": "aiot build --complete-feature",
+    "release": "aiot release --complete-feature --drop-console true"
+  },
+  "devDependencies": {
+    "@aiot-toolkit/velasim": "^0.1.26-beta.3",
+    "aiot-toolkit": "^2.0.5"
+  },
+  "private": true,
+  "aiot": {
+    "projectType": "quickapp",
+    "deviceType": "watch"
+  }
+}
